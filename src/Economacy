@@ -1,0 +1,2428 @@
+;WBStartup
+
+.Dims
+Dim x.w(62,2),y.w(62,2),lprov.b(82),wirt.w(62),Order.b(82,2)
+Dim kland.b(140),koor.w(140,4),pro$(82),flag.b(82),WirtMacht.w(7)
+Dim PanzXY.w(62,2),ShipXY.w(82,2),MoveL.b(62,7),MoveW.b(82,12)
+Dim MoveAnz.b(82,2),land$(8),Wind.w(16),WindO.b(16),Beg.b(7)
+Dim OrdFlag.b(82),ProvView.b(7),Brucke.b(82),Steuer.b(7)
+Dim Support.b(82,2),Heart.b(62,7),AnzDiv.b(7,2),Geld.w(7)
+Dim Plunder.b(62),Monat$(12)
+
+BrushPath$="/images/"
+PicsPath$="/images/"
+PalettePath$="/images/"
+SamplePath$="/sfx/"
+SavePath$="/saves/"
+
+.Konstanten
+#AufrBeg=-6
+#AufrKost=120
+#AufrWirt=-5
+#SubsBeg=2
+#SubsKost=65
+#SubsWirt=3
+#PlunderDivGeld=6
+#PlunderProWirt=70
+#PlunderBeg=-10
+#BuyPanz=150
+#BuyShip=150
+#PanzProvUnt=2
+#ShipProvUnt=1
+#BegTaxSame=2
+#WirtTaxSame=2
+#WirtTaxFact=2
+#PanzUnt=35
+#ShipUnt=20
+#BuyPanzBeg=-15
+#BuyPanzWirt=-5
+#BuyShipBeg=-11
+#BuyShipWirt=-5
+#SellPanzWirt=5
+#SellShipWirt=5
+#InflDivBeg=50
+#Kreditrahmen=300
+#BegAttPanz=3
+#BegAttShip=2
+#WirtAttPanz=8
+#WirtAttShip=5
+#SpyKosten=10
+
+.Statements
+Statement BoxClean{}
+ Use BitMap 1
+ Boxf 167,13,256,21,0
+ Boxf 174,27,249,35,0
+ Boxf 184,42,199,47,1
+ Boxf 222,41,237,48,3
+ Boxf 181,56,197,64,0
+ Boxf 231,56,253,64,0
+ Boxf 287,68,309,76,0
+ Boxf 283,82,313,90,0
+ Boxf 279,55,290,63,3
+ Boxf 308,55,318,63,5
+ Boxf 256,125,319,132,0
+End Statement
+
+Statement Blanks{a.b}
+SHARED gamespeed.b
+ VWait gamespeed.b*a.b*25
+End Statement
+
+Statement SpyOn{}
+SHARED LastSpy.b
+ Blit 86,202,139
+ LastSpy.b=1
+End Statement
+
+Statement SpyOff{}
+SHARED LastSpy.b
+ Line 203,139,218,167,9
+ Line 202,140,217,168,9
+ Line 202,167,217,139,9
+ Line 203,168,218,140,9
+ Line 202,139,218,168,3
+ Line 202,168,218,139,3
+ LastSpy.b=0
+End Statement
+
+Function.b Own{}
+SHARED lprov.b(),ProvAct.b,turn.b
+ a.b=0
+ If lprov.b(ProvAct.b)=turn.b Then a.b=1
+Function Return a.b
+End Function
+
+.UnitSubs
+Statement BsetPanz{a.b}
+SHARED flag.b()
+ flag.b(a.b)=flag.b(a.b) OR 1
+End Statement
+
+Statement BsetShip{a.b}
+SHARED flag.b()
+ flag.b(a.b)=flag.b(a.b) OR 2
+End Statement
+
+Statement BclrPanz{a.b}
+SHARED flag.b()
+ flag.b(a.b)=flag.b(a.b) AND 254
+End Statement
+
+Statement BclrShip{a.b}
+SHARED flag.b()
+ flag.b(a.b)=flag.b(a.b) AND 253
+End Statement
+
+Function.b TestPanz{a.b}
+SHARED flag.b()
+ b.b=(flag.b(a.b) AND 1)
+Function Return b.b
+End Function
+
+Function.b TestShip{a.b}
+SHARED flag.b()
+ b.b=(flag.b(a.b) AND 2)
+Function Return b.b
+End Function
+
+Function.b TestLand{a.b}
+SHARED flag.b()
+ b.b=(flag.b(a.b) AND 4)
+Function Return b.b
+End Function
+
+Function.b TestWasser{a.b}
+SHARED flag.b()
+ b.b=(flag.b(a.b) AND 8)
+Function Return b.b
+End Function
+
+Statement DrawShip{a.b}
+SHARED ShipXY.w(),flag.b()
+ b.w=ShipXY.w(a.b,1)
+ c.w=ShipXY.w(a.b,2)
+ GetaShape a.b+62,b.w,c.w,16,6
+ Blit 76,b.w,c.w
+End Statement
+
+Statement SetShip{a.b}
+SHARED flag.b()
+If TestWasser{a.b} AND TestShip{a.b}=0
+ Use BitMap 0
+ BsetShip{a.b}
+ DrawShip{a.b}
+ Use BitMap 1
+End If
+End Statement
+
+Statement EraseShip{a.b}
+SHARED ShipXY.w(),flag.b()
+ b.w=ShipXY.w(a.b,1)
+ c.w=ShipXY.w(a.b,2)
+ BlitMode EraseMode
+ Blit 76,b.w,c.w
+ BlitMode CookieMode
+ Blit a.b+62,b.w,c.w
+End Statement
+
+Statement UnSetShip{a.b}
+SHARED flag.b()
+If TestShip{a.b}
+ Use BitMap 0
+ BclrShip{a.b}
+ EraseShip{a.b}
+ Use BitMap 1
+End If
+End Statement
+
+Statement DrawPanz{a.b}
+SHARED PanzXY.w(),flag.b()
+ b.w=PanzXY.w(a.b,1)
+ c.w=PanzXY.w(a.b,2)
+ GetaShape a.b,b.w,c.w,16,8
+ Blit 0,b.w,c.w
+End Statement
+
+Statement SetPanz{a.b}
+SHARED flag.b()
+If TestPanz{a.b}=0
+ Use BitMap 0
+ BsetPanz{a.b}
+ DrawPanz{a.b}
+ Use BitMap 1
+End If
+End Statement
+
+Statement ErasePanz{a.b}
+SHARED PanzXY.w(),flag.b()
+ b.w=PanzXY.w(a.b,1)
+ c.w=PanzXY.w(a.b,2)
+ BlitMode EraseMode
+ Blit 0,b.w,c.w
+ BlitMode CookieMode
+ Blit a.b,b.w,c.w
+End Statement
+
+Statement UnSetPanz{a.b}
+SHARED flag.b()
+If TestPanz{a.b}
+ Use BitMap 0
+ BclrPanz{a.b}
+ ErasePanz{a.b}
+ Use BitMap 1
+End If
+End Statement
+
+.ProvData
+Statement ActMenu{}
+SHARED ProvAct.b,gamespeed.b,Steuer.b(),turn.b,Geld.w()
+ WindowOutput 0
+ MenuGap 2,3
+ MenuTitle 0,0,"Game"
+ MenuColour 2
+ MenuItem 0,0,0,0,"Geschwindigkeit"
+ a.b=0:If gamespeed.b=1 Then a.b=4
+ SubItem 0,a.b,0,0,0,"     Sehr schnell"
+ a.b=0:If gamespeed.b=2 Then a.b=4
+ SubItem 0,a.b,0,0,1,"     Schnell"
+ a.b=0:If gamespeed.b=3 Then a.b=4
+ SubItem 0,a.b,0,0,2,"     Mittel"
+ a.b=0:If gamespeed.b=4 Then a.b=4
+ SubItem 0,a.b,0,0,3,"     Langsam"
+ a.b=0:If gamespeed.b=5 Then a.b=4
+ SubItem 0,a.b,0,0,4,"     Sehr langsam"
+ MenuColour 3
+ MenuItem 0,0,0,1,"Kriegssteuersatz"
+ MenuColour 15
+ a.b=0:If Steuer.b(turn.b)=0 Then a.b=4
+ SubItem 0,a.b,0,1,0,"      0%"
+ a.b=0:If Steuer.b(turn.b)=1 Then a.b=4
+ SubItem 0,a.b,0,1,1,"      5%"
+ a.b=0:If Steuer.b(turn.b)=2 Then a.b=4
+ SubItem 0,a.b,0,1,2,"     10%"
+ a.b=0:If Steuer.b(turn.b)=3 Then a.b=4
+ SubItem 0,a.b,0,1,3,"     15%"
+ a.b=0:If Steuer.b(turn.b)=4 Then a.b=4
+ SubItem 0,a.b,0,1,4,"     20%"
+ a.b=0:If Steuer.b(turn.b)=5 Then a.b=4
+ SubItem 0,a.b,0,1,5,"     25%"
+ a.b=0:If Steuer.b(turn.b)=6 Then a.b=4
+ SubItem 0,a.b,0,1,6,"     30%"
+ a.b=0:If Steuer.b(turn.b)=7 Then a.b=4
+ SubItem 0,a.b,0,1,7,"     35%"
+ MenuColour 7
+ MenuItem 0,0,0,2,"Spiel laden"
+ MenuColour 10
+ MenuItem 0,0,0,3,"Spiel sichern"
+ a.b=0:If Geld.w(turn.b)+#Kreditrahmen<#SubsKost Then a.b=8
+ MenuColour 11
+ MenuItem 0,a.b,0,4,"Subsidien geben"
+ a.b=0:If Geld.w(turn.b)+#Kreditrahmen<#AufrKost Then a.b=8
+ MenuColour 12
+ MenuItem 0,a.b,0,5,"Aufruhr schueren"
+ MenuColour 9
+ MenuItem 0,0,0,6,"Beenden"
+ MenuTitle 0,1,"Panzer"
+ MenuColour 2
+ a.b=8:If Own{}=1 AND TestLand{ProvAct.b} AND TestPanz{ProvAct.b}=0 AND Geld.w(turn.b)+#Kreditrahmen>#BuyPanz Then a.b=0
+ MenuItem 0,a.b,1,0,"Bataillon ausheben"
+ MenuColour 8
+ a.b=8:If Own{}=1 AND TestPanz{ProvAct.b} Then a.b=0
+ MenuItem 0,a.b,1,1,"Bataillon aufloesen"
+ MenuColour 14
+ MenuItem 0,a.b,1,2,"Panzer bewegen"
+ MenuColour 15
+ MenuItem 0,a.b,1,3,"Andere Einheit unterstuetzen"
+ MenuColour 4
+ MenuItem 0,a.b,1,4,"Provinz pluendern"
+ MenuTitle 0,2,"Schiffe"
+ MenuColour 2
+ a.b=8:If Own{}=1 AND TestWasser{ProvAct.b} AND TestShip{ProvAct.b}=0 AND Geld.w(turn.b)+#Kreditrahmen>#BuyShip Then a.b=0
+ MenuItem 0,a.b,2,0,"Schiffdivision ausheben"
+ MenuColour 8
+ a.b=8:If Own{}=1 AND TestShip{ProvAct.b} Then a.b=0
+ MenuItem 0,a.b,2,1,"Schiffe aufloesen"
+ MenuColour 14
+ MenuItem 0,a.b,2,2,"Schiff bewegen"
+ MenuColour 15
+ MenuItem 0,a.b,2,3,"Andere Einheit unterstuetzen"
+ MenuColour 5
+ If TestLand{ProvAct.b}>0 Then a.b=8
+ MenuItem 0,a.b,2,4,"Seebruecke bilden"
+ MenuState 0,0,On
+ MenuState 0,1,On
+ MenuState 0,2,On
+ SetMenu 0
+End Statement
+
+Statement ShowProv{a.b}
+SHARED pro$(),lprov.b(),land$(),wirt.w(),ProvAct.b,spy.b,Beg.b()
+SHARED AnzDiv.b(),turn.b,Heart.b(),Geld.w(),TurnsYet.w,Monat$()
+ BoxClean{}
+ ProvAct.b=a.b
+ WLocate 168,3
+ WColour 2
+ NPrint pro$(a.b)
+ WLocate 175,17
+ WColour 14
+ NPrint land$(lprov.b(a.b))
+ If TestShip{a.b} Then Blit 76,184,42
+ If TestPanz{a.b} Then Blit 0,222,41
+ WLocate 182,46
+ WColour 7
+ If TestLand{a.b}
+  Then
+   If Own{}=1 OR spy.b=1
+    Then NPrint wirt.w(a.b):SpyOff{}
+    Else NPrint "???":SpyOn{}
+   End If
+  Else NPrint "---":SpyOff{}
+ End If
+ WLocate 231,46
+ WColour 11
+ If TestLand{a.b}>0
+  Then
+   If (Own{}=1 OR spy.b=1)
+    Then
+     If lprov.b(a.b)<8
+      Then z.b=Heart.b(a.b,lprov.b(a.b))
+      Else z.b=Heart.b(a.b,turn.b)
+     End If
+     If z.b>65 Then WColour 8
+     If z.b<35 Then WColour 9
+     Format "###"
+     Print z.b
+     Format ""
+     Print "%"
+     spy.b=0
+    Else Print "????"
+   End If
+  Else Print "----"
+ End If
+ num.b=0:Cheer.q=0
+ For byte.b=1 To 62
+  If lprov.b(byte.b)=turn.b
+   Cheer.q+Heart.b(byte.b,turn.b)
+   num.b+1
+  End If
+ Next byte
+ WLocate 287,58
+ WColour 11
+ Cheer.q/num.b
+ Beg.b(turn.b)=Int(Cheer+0.5)
+ If Cheer.q>65 Then WColour 8
+ If Cheer.q<35 Then WColour 9
+ Format "###"
+ Print Beg.b(turn.b)
+ Format ""
+ Print "%"
+ WLocate 283,72
+ WColour 7
+ Format "-####"
+ Print Geld.w(turn.b)
+ Format ""
+ WLocate 279,45
+ WColour 4,3
+ Format "##"
+ Print AnzDiv.b(turn.b,1)
+ WLocate 308,45
+ WColour 1,5
+ Print AnzDiv.b(turn.b,2)
+ WColour 1,0
+ Format ""
+ WLocate 257,114
+ WColour 2
+ word.w=(TurnsYet.w-1)/12
+ Print Monat$(TurnsYet.w-word.w*12)
+ Print " "
+ Print Int(word.w)
+ ActMenu{}
+End Statement
+
+.Flagge
+Statement WindAnim{}
+SHARED WindON.b,Wind.w(),WindO.b(),FirstWind.b
+ VWait
+ If WindON.b=1
+  Use BitMap 1
+  For wbyte.b=1 To 16
+   wword.w=Wind.w(wbyte.b)
+   wword.w+1:If wword.w=317 Then wword.w=270
+   a.b=WindO.b(wbyte.b)
+   If wword.w=270
+    b.b=a.b
+    If Sgn(FirstWind.b*(a.b-13))=1 OR Abs(FirstWind.b)=2 Then b.b=13
+    FirstWind.b-13+a.b
+    a.b=b.b
+   End If
+   Scroll wword.w,13,1,38,wword.w,a.b
+   Wind.w(wbyte.b)=wword.w
+  Next wbyte
+ End If
+End Statement
+
+Statement DrawFlag{a.b}
+SHARED WindON.b,Wind.w(),FirstWind.b
+ Use BitMap 1
+ Boxf 269,13,317,49,1
+ Blit 144+a.b,269,16
+ Scroll 270,16,1,33,270,15
+ Scroll 271,16,6,34,271,14
+ Scroll 277,16,3,33,277,15
+ Scroll 283,15,3,33,283,16
+ Scroll 286,14,7,34,286,16
+ Scroll 293,15,3,33,293,16
+ Scroll 299,16,3,33,299,15
+ Scroll 302,16,3,34,302,14
+ Scroll 305,16,1,33,305,15
+ Scroll 308,16,1,33,308,15
+ Scroll 309,16,3,34,309,14
+ Scroll 312,16,1,33,312,15
+ Scroll 315,16,2,33,315,15
+ While Wind.w(1)<>269
+  For n=1 To 16
+   Wind.w(n)-1:If Wind.w(n)=268 Then Wind.w(n)=315
+  Next n
+ Wend
+ WindON.b=1
+ FirstWind.b=-2
+End Statement
+
+.Statements2
+Function.b TestAnr{a.b,b.b,c.b}
+SHARED MoveAnz.b(),MoveL.b(),MoveW.b()
+ flag.b=0
+ If MoveAnz.b(a.b,c.b)>0
+  For n=1 To MoveAnz.b(a.b,c.b)
+   If c.b=1
+    Then If MoveL.b(a.b,n)=b.b Then flag.b=1
+    Else If MoveW.b(a.b,n)=b.b Then flag.b=1
+   End If
+  Next n
+ End If
+Function Return flag.b
+End Function
+
+Statement LeftMouse{}
+ While JoyC(0)<>0
+  WindAnim{}
+ Wend
+ While JoyC(0)=0
+  WindAnim{}
+ Wend
+End Statement
+
+Statement Klick{}
+SHARED vx.w,vy.w,sp.l
+ LeftMouse{}
+ vy.w=Peek.w(16+sp.l)
+ vx.w=Peek.w(18+sp.l)
+End Statement
+
+Function.b FindProv{a.w,b.w}
+SHARED koor.w(),kland.b()
+ prov.b=-1
+ For n=1 To 140
+  If a.w>=koor.w(n,1) AND a.w<=koor.w(n,3) AND b.w>=koor.w(n,2) AND b.w<=koor.w(n,4)
+   prov.b=kland.b(n)
+   n=140
+  End If
+ Next n
+Function Return prov.b
+End Function
+
+Statement InitMessage{a.b}
+ Use BitMap 1
+ Boxf 0,175,319,244,0
+ WLocate 0,170
+ WColour a.b
+End Statement
+
+Statement PaintLand{a.b}
+SHARED x.w(),y.w(),lprov.b(),flag.b()
+If a.b<63
+ Use BitMap 0
+ If TestPanz{a.b} Then ErasePanz{a.b}
+ If TestShip{a.b} Then EraseShip{a.b}
+ For n=1 To 2
+  If x.w(a.b,n)>44 Then FloodFill x.w(a.b,n),y.w(a.b,n),lprov.b(a.b)+3
+ Next n
+ If TestPanz{a.b} Then DrawPanz{a.b}
+ If TestShip{a.b} Then DrawShip{a.b}
+ Use BitMap 1
+End If
+End Statement
+
+.ChooseMap
+Statement ActMap{}
+SHARED xpos.w,ypos.w
+ Use BitMap 1
+ If xpos.w<44 Then xpos.w=44
+ If ypos.w<32 Then ypos.w=32
+ If xpos.w>404 Then xpos.w=404
+ If ypos.w>320 Then ypos.w=320
+ Scroll xpos.w,ypos.w,160,160,0,11,0
+End Statement
+
+Statement ShowArea{a.b,b.b,c.b}
+SHARED ShipXY.w(),PanzXY.w(),xpos.w,ypos.w
+ If c.b=2 OR a.b>62 OR a.b>62
+  Then
+   xpos.w=Int((ShipXY(a.b,1)+ShipXY(b.b,1))/2)-80
+   ypos.w=Int((ShipXY(a.b,2)+ShipXY(b.b,2))/2)-80
+  Else
+   xpos.w=Int((PanzXY(a.b,1)+PanzXY(b.b,1))/2)-80
+   ypos.w=Int((PanzXY(a.b,2)+PanzXY(b.b,2))/2)-80
+ End If
+ ActMap{}
+End Statement
+
+Statement ChooseMap{}
+SHARED xpos.w,ypos.w,WindON.b
+ BLITZ
+ Slice 0,80,224,160,$fff8,4,0,16,640,640
+ Show 0,xpos.w-32,ypos.w
+ Use Palette 0
+ mb=0
+ joy0dat=Peek.w($Dff00A)
+ my=Int(joy0dat/256)
+ mx=joy0dat-my*256
+ While Joyb(0)<>0:Wend
+ While mb=0
+  mb=Joyb(0)
+  joy0dat=Peek.w($Dff00A)
+  m2y=Int(joy0dat/256)
+  m2x=joy0dat-m2y*256
+  If NOT(my=m2y AND mx=m2x)
+   difx=m2x-mx
+   dify=m2y-my
+   If difx>127 Then difx=difx-256
+   If difx<-128 Then difx=difx+256
+   If dify>127 Then dify=dify-256
+   If dify<-128 Then dify=dify+256
+   mx=m2x
+   my=m2y
+   xpos.w=xpos.w+difx
+   ypos.w=ypos.w+dify
+   If xpos.w>564-160 Then xpos.w=404
+   If xpos.w<44 Then xpos.w=44
+   If ypos.w>480-160 Then ypos.w=320
+   If ypos.w<32 Then ypos.w=32
+   Show 0,xpos.w-32,ypos.w
+  End If
+ Wend
+ FreeSlices
+ AMIGA
+ ActMap{}
+End Statement
+
+.Statements3
+Function$ GetFileName{}
+SHARED SavePath$
+ MaxLen pa$=160
+ MaxLen fi$=64
+ pa$=SavePath$
+ a$=FileRequest$("DiplomacySaves",pa$,fi$)
+ Boxf 0,0,319,9,0
+ Function Return a$
+End Function
+
+Statement TestRevolt{}
+SHARED land$(),lprov.b(),Heart.b(),pro$()
+ For byte.b=1 To 62
+  If lprov.b(byte.b)<8
+   bonus.b=0
+   If TestPanz{byte.b} Then bonus.b=15:If TestLand{byte.b} Then bonus.b+3
+   If TestShip{byte.b} Then bonus.b+10
+   If Heart.b(byte.b,lprov.b(byte.b))+Rnd*10+bonus.b<35
+    ShowArea{byte.b,byte.b,1}
+    InitMessage{9}
+    word.w=0:word2.w=0
+    For byte2.b=1 To 7
+     If Heart.b(byte.b,byte2.b)>word.w
+      word.w=Heart.b(byte.b,byte2.b)
+      word2.w=byte2.b
+     End If
+    Next byte2
+    Print pro$(byte.b)
+    If word.w<71
+     Then
+      word2.w=8
+      NPrint " weigert sich von nun an, Befehle entgegenzunehmen,"
+      NPrint "die Provinz erhaelt daher unabhaengigen Status!"
+     Else
+      Print " ist damit einverstanden, sich "
+      Print land$(word2.w)
+      NPrint " anzuschliessen!"
+    End If
+    WColour 2
+    If TestShip{byte.b} Then UnSetShip{byte.b}:NPrint "Schiffdivision geht verloren!"
+    If TestPanz{byte.b} Then UnSetPanz{byte.b}:NPrint "Panzerdivision geht verloren!"
+    lprov.b(byte.b)=word2.w
+    Blanks{2}
+    PaintLand{byte.b}
+    ShowArea{byte.b,byte.b,1}
+    Blanks{2}
+   End If
+  End If
+ Next byte
+End Statement
+
+Statement TestEintritt{}
+SHARED lprov.b(),pro$(),land$(),Heart.b()
+ For a.b=1 To 62
+  If lprov.b(a.b)=8
+   word.w=0:word2.w=0
+   For byte2.b=1 To 7
+    If Heart.b(a.b,byte2.b)>word.w
+     word.w=Heart.b(a.b,byte2.b)
+     word2.w=byte2.b
+    End If
+   Next byte2
+   If word.w+Rnd*5>72
+    InitMessage{11}
+    ShowArea{a.b,a.b,1}
+    Print pro$(a.b)
+    Print " ist bereit, auf der Seite von "
+    Print land$(word2.w)
+    NPrint " in den Krieg zu ziehen!"
+    lprov.b(a.b)=word2.w
+    PaintLand{a.b}
+    Blanks{2}
+    ActMap{}
+    Blanks{1}
+   End If
+  End If
+ Next a
+End Statement
+
+.User
+Function.b FindProvVX{}
+SHARED vx.w,vy.w,xpos.w,ypos.w
+ a.b=FindProv{xpos.w+vx.w,ypos.w+vy.w-11}
+Function Return a.b
+End Function
+
+Function.b GetProv{}
+SHARED vx.w,vy.w,xpos.w,ypos.w
+vonvorne:
+ Klick{}
+ prov.b=-1
+ If vx.w>166 AND vx.w<197 AND vy.w>137 AND vy.w<169 Then ChooseMap{}:Goto vonvorne
+ If vx.w<160 AND vy.w<171
+  prov.b=FindProvVX{}
+ End If
+ Function Return prov.b
+End Function
+
+.ComplOrders
+Statement ShipFlee{a.b}
+SHARED Order.b(),OrdFlag.b(),MoveAnz.b(),MoveW.b(),pro$(),lprov.b(),land$()
+If TestShip{a.b}
+ UnSetShip{a.b}
+ Order.b(a.b,2)=0
+ num.b=MoveAnz.b(a.b,2)
+ c.b=0
+ For b.b=1 To num.b
+  Dest.b=MoveW.b(a.b,b.b)
+  If (OrdFlag.b(Dest.b) AND 2)=0 AND TestLand{Dest.b}=0 AND TestShip{Dest.b}=0 Then c.b+1
+ Next b
+ If c.b>0
+  Then
+   d.b=Int(Rnd*c.b)+1
+   c.b=0
+   For b.b=1 To num.b
+    Dest.b=MoveW.b(a.b,b.b)
+    If (OrdFlag.b(Dest.b) AND 2)=0 AND TestLand{Dest.b}=0 AND TestShip{Dest.b}=0
+     c.b+1
+     If c.b=d.b
+      SetShip{Dest.b}
+      lprov.b(Dest.b)=lprov.b(a.b)
+      Print land$(lprov.b(a.b))
+      Print " zieht Schiff von "
+      Print pro$(a.b)
+      Print " nach "
+      Print pro$(Dest.b)
+      NPrint " zurueck!"
+     End If
+    End If
+   Next b
+  Else
+   Print land$(lprov.b(a.b))
+   Print " verliert Schiff in "
+   NPrint pro$(a.b)
+ End If
+End If
+End Statement
+
+Statement MoveShip{a.b,b.b}
+SHARED lprov.b(),flag.b(),xpos.w,ypos.w,ShipXY(),pro$(),land$()
+ ShowArea{a.b,b.b,2}
+ InitMessage{2}
+ Print land$(lprov.b(a.b))
+ Print " bewegt Schiff von "
+ Print pro$(a.b)
+ Print " nach "
+ NPrint pro$(b.b)
+ UnSetShip{a.b}
+ lprov.b(b.b)=lprov.b(a.b)
+ PaintLand{b.b}
+ SetShip{b.b}
+ Blanks{1}
+ ActMap{}
+ Blanks{1}
+End Statement
+
+Statement MovePanz{a.b,b.b}
+SHARED lprov.b(),flag.b(),xpos.w,ypos.w,PanzXY(),pro$(),land$()
+ ShowArea{a.b,b.b,1}
+ InitMessage{2}
+ Print land$(lprov.b(a.b))
+ Print " bewegt Panzer von "
+ Print pro$(a.b)
+ Print " nach "
+ NPrint pro$(b.b)
+ If lprov.b(a.b)<>lprov.b(b.b) Then ShipFlee{b.b}
+ UnSetPanz{a.b}
+ lprov.b(b.b)=lprov.b(a.b)
+ PaintLand{b.b}
+ SetPanz{b.b}
+ Blanks{1}
+ ActMap{}
+ Blanks{1}
+End Statement
+
+Statement MoveShipSup{byte.b}
+SHARED Order.b(),finished.b,OrdFlag.b(),Support.b(),Brucke.b()
+ high.b=-1
+ both.b=1
+ For a.b=1 To 82
+  If Order.b(a.b,2)=byte.b AND Brucke.b(a.b)=0
+   If Support.b(a.b,2)=high.b Then both.b=1
+   If Support.b(a.b,2)>high.b
+    both.b=0
+    high.b=Support.b(a.b,2)
+    act.b=a.b
+   End If
+  End If
+ Next a
+ If both.b=0 AND act.b>0
+  MoveShip{act.b,byte.b}
+  Support.b(act.b,2)=0
+ End If
+ For a.b=1 To 82
+  If Order.b(a.b,2)=byte.b AND Brucke.b(a.b)=0 Then Support.b(a.b,2)=0:Order.b(a.b,2)=0
+ Next a
+End Statement
+
+Statement MovePanzSup{byte.b}
+SHARED Order.b(),finished.b,OrdFlag.b(),Support.b()
+ high.b=-1
+ both.b=1
+ For a.b=1 To 82
+  If Order.b(a.b,1)=byte.b
+   If Support.b(a.b,1)=high.b Then both.b=1
+   If Support.b(a.b,1)>high.b
+    both.b=0
+    high.b=Support.b(a.b,1)
+    act.b=a.b
+   End If
+  End If
+ Next a
+ If both.b=0 AND act.b>0
+  MovePanz{act.b,byte.b}
+  Support.b(act.b,1)=0
+ End If
+ For a.b=1 To 82
+  If Order.b(a.b,1)=byte.b Then Support.b(a.b,1)=0:Order.b(a.b,1)=0
+ Next a
+End Statement
+
+Statement PrepPanz{byte.b}
+SHARED Order.b(),finished.b,OrdFlag.b()
+ If finished.b=1 Then finished.b=0
+ Dest.b=Order.b(byte.b,1)
+ If TestAnr{byte.b,Dest.b,1}>0 AND TestPanz{Dest.b}=0 AND (OrdFlag.b(Dest.b) AND 4)=0
+  finished.b=3
+  MovePanz{byte.b,Dest.b}
+  Order.b(byte.b,1)=0
+ End If
+End Statement
+
+Statement PrepShip{byte.b}
+SHARED Order.b(),finished.b,OrdFlag.b()
+ Dest.b=Order.b(byte.b,2)
+ If finished.b=1 Then finished.b=0
+ If TestShip{Dest.b}=0 AND (OrdFlag.b(Dest.b) AND 9)=0 AND TestPanz{Dest.b}=0
+  finished.b=3
+  MoveShip{byte.b,Dest.b}
+  Order.b(byte.b,2)=0
+ End If
+End Statement
+
+Statement PrepUnSupShip{byte.b}
+SHARED Order.b(),OrdFlag.b(),pro$(),Brucke.b()
+ Dest.b=Order.b(byte.b,2)
+ If Order.b(Dest.b,2)<0 AND (OrdFlag.b(byte.b) AND 2)=0
+  InitMessage{2}
+  ShowArea{byte.b,Dest.b,2}
+  Order.b(Dest.b,2)=0
+  Brucke.b(Dest.b)=0
+  Print "Schiff in "
+  Print pro$(byte.b)
+  Print " verwickelt "
+  Print pro$(Dest.b)
+  NPrint " in Kaempfe!"
+  Blanks{2}
+ End If
+End Statement
+
+Statement PrepUnSupPanz{byte.b}
+SHARED Order.b(),OrdFlag.b(),pro$()
+ Dest.b=Order.b(byte.b,1)
+ If Order.b(Dest.b,1)<0 AND (OrdFlag.b(byte.b) AND 1)=0
+  InitMessage{2}
+  ShowArea{byte.b,Dest.b,1}
+  Order.b(Dest.b,1)=0
+  Print "Panzer in "
+  Print pro$(byte.b)
+  Print " verwickelt "
+  Print pro$(Dest.b)
+  NPrint " in Kaempfe!"
+  Blanks{2}
+ End If
+End Statement
+
+Statement SupportShip{byte.b}
+SHARED Order.b(),pro$(),Support.b(),Brucke.b()
+ Dest.b=Order.b(byte.b,2) AND 127
+ Order.b(byte.b,2)=0
+ If Brucke.b(byte.b)=0
+  Then
+   a.b=0
+   If TestShip{Dest.b}=0 Then a.b=1
+   If Order.b(Dest.b,2)>0
+    If TestAnr{Order.b(Dest.b,2),byte.b,2}=0 Then a.b=1
+   End If
+   If a.b=0
+    Support.b(Dest.b,2)+1
+    InitMessage{2}
+    Print "Schiff in "
+    Print pro$(byte.b)
+    Print " unterstuetzt "
+    NPrint pro$(Dest.b)
+    ShowArea{byte.b,Dest.b,2}
+    Blanks{2}
+   End If
+  Else
+   InitMessage{2}
+   Print "Schiff in "
+   Print pro$(byte.b)
+   NPrint " dient als Seebruecke!"
+   ShowArea{byte.b,byte.b,2}
+   Blanks{2}
+ End If
+End Statement
+
+Statement SupportPanz{byte.b}
+SHARED Order.b(),pro$(),Support.b()
+ Dest.b=Order.b(byte.b,1) AND 127
+ Order.b(byte.b,1)=0
+ a.b=0
+ If TestPanz{Dest.b}=0 Then a.b=1
+ If Order.b(Dest.b,1)>0
+  If TestAnr{Order.b(Dest.b,1),byte.b,1}=0 Then a.b=1
+ End If
+ If a.b=0
+  Support.b(Dest.b,1)+1
+  InitMessage{2}
+  Print "Panzer in "
+  Print pro$(byte.b)
+  Print " unterstuetzt "
+  NPrint pro$(Dest.b)
+  ShowArea{byte.b,Dest.b,1}
+  Blanks{2}
+ End If
+End Statement
+
+Statement SetOrderFlags{}
+SHARED OrdFlag.b(),Order.b()
+ For byte.b=1 To 82
+  z.b=Order.b(byte.b,1)
+  If z.b>0
+   If (OrdFlag.b(z.b) AND 1)
+    Then OrdFlag.b(z.b) OR 4
+    Else OrdFlag.b(z.b) OR 1
+   End If
+  End If
+  z.b=Order.b(byte.b,2)
+  If z.b>0
+   If (OrdFlag.b(z.b) AND 2)
+    Then OrdFlag.b(z.b) OR 8
+    Else OrdFlag.b(z.b) OR 2
+   End If
+  End If
+ Next byte
+End Statement
+
+Statement TestEasyMoves{}
+SHARED finished.b,Order.b()
+ Repeat
+  finished.b=1
+  For byte.b=1 To 82
+   If Order.b(byte.b,2)>0 Then PrepShip{byte.b}
+   If Order.b(byte.b,1)>0 Then PrepPanz{byte.b}
+  Next byte
+ Until finished.b=1 OR finished.b=0
+End Statement
+
+Statement AttackShip{a.b}
+SHARED Order.b(),Support.b(),pro$(),land$(),lprov.b(),Heart.b()
+SHARED wirt.w()
+ Dest.b=Order.b(a.b,2)
+ If TestShip{Dest.b}>0 AND TestPanz{Dest.b}=0 AND lprov.b(Dest.b)<>lprov.b(a.b)
+  If Dest.b<63 Then Heart.b(Dest.b,lprov.b(a.b))-#BegAttShip:wirt.w(Dest.b)-#WirtAttShip
+  ShowArea{a.b,Dest.b,2}
+  InitMessage{2}
+  Print "Schiffangriff seitens "
+  Print land$(lprov.b(a.b))
+  Print " von "
+  Print pro$(a.b)
+  Print " nach "
+  Print pro$(Dest.b)
+  Print " "
+  Order.b(Dest.b,2)=0
+  Order.b(a.b,2)=0
+  If WCursX>250 Then NPrint " "
+  If Support.b(Dest.b,2)<Support.b(a.b,2)
+   Then
+    NPrint "erfolgreich!"
+    Blanks{1}
+    Support.b(Dest.b,2)=Support.b(a.b,2)
+    Support.b(a.b,2)=0
+    UnSetShip{Dest.b}
+    lprov.b(Dest.b)=lprov.b(a.b)
+    PaintLand{Dest.b}
+    UnSetShip{a.b}
+    SetShip{Dest.b}
+    ActMap{}
+   Else
+    NPrint "abgewehrt!"
+  End If
+  Sound 0,15,45
+  Blanks{2}
+ End If
+End Statement
+
+Statement AttackPanz{a.b}
+SHARED Order.b(),Support.b(),pro$(),land$(),lprov.b(),Heart.b()
+SHARED wirt.w()
+ Dest.b=Order.b(a.b,1)
+ If TestPanz{Dest.b}>0 AND lprov.b(Dest.b)<>lprov.b(a.b)
+  If Dest.b<63 Then Heart.b(Dest.b,lprov.b(a.b))-#BegAttPanz:wirt.w(Dest.b)-#WirtAttPanz
+  ShowArea{a.b,Dest.b,1}
+  InitMessage{2}
+  Print "Panzerangriff seitens "
+  Print land$(lprov.b(a.b))
+  Print " von "
+  Print pro$(a.b)
+  Print " nach "
+  Print pro$(Dest.b)
+  Print " "
+  Order.b(Dest.b,1)=0
+  Order.b(a.b,1)=0
+  If WCursX>250 Then NPrint " "
+  If Support.b(Dest.b,1)<Support.b(a.b,1)
+   Then
+    NPrint "erfolgreich!"
+    ShipFlee{Dest.b}
+    Blanks{1}
+    Support.b(Dest.b,1)=Support.b(a.b,1)
+    Support.b(a.b,1)=0
+    UnSetPanz{Dest.b}
+    lprov.b(Dest.b)=lprov.b(a.b)
+    PaintLand{Dest.b}
+    UnSetPanz{a.b}
+    SetPanz{Dest.b}
+    ActMap{}
+   Else
+    NPrint "abgewehrt!"
+  End If
+  Sound 1,15,64
+  Blanks{2}
+ End If
+End Statement
+
+Statement PanzTrans{a.b}
+SHARED Brucke.b(),Order.b(),lprov.b(),MoveW.b(),MoveAnz.b()
+ Dest.b=Order.b(a.b,1)
+ If TestAnr{a.b,Dest.b,1}=0 AND lprov.b(Dest.b)=lprov.b(a.b) AND TestPanz{Dest.b}=0 AND TestWasser{a.b}>0
+  ok.b=0
+  For k.b=1 To MoveAnz.b(a.b,2)
+   u.b=MoveW.b(a.b,k.b):If u.b=Dest.b Then ok.b=1
+   If Brucke.b(u.b)=1 AND ok.b=0
+    For l.b=1 To MoveAnz.b(u.b,2)
+     v.b=MoveW.b(u.b,l.b):If v.b=Dest.b Then ok.b=1
+     If Brucke.b(v.b)=1 AND ok.b=0
+      For m.b=1 To MoveAnz.b(v.b,2)
+       w.b=MoveW.b(v.b,m.b):If w.b=Dest.b Then ok.b=1
+       If Brucke.b(w.b)=1 AND ok.b=0
+        For n.b=1 To MoveAnz.b(w.b,2)
+         x.b=MoveW.b(w.b,n.b):If x.b=Dest.b Then ok.b=1
+         If Brucke.b(x.b)=1 AND ok.b=0
+          For o.b=1 To MoveAnz.b(x.b,2)
+           y.b=MoveW.b(x.b,o.b):If y.b=Dest.b Then ok.b=1
+          Next o
+         End If
+        Next n
+       End If
+      Next m
+     End If
+    Next l
+   End If
+  Next k
+  If ok.b=1 Then MovePanz{a.b,Dest.b}:Order.b(a.b,1)=0
+ End If
+End Statement
+
+Statement Plundern{a.b}
+SHARED wirt.w(),Geld.w(),pro$(),land$(),lprov.b(),Heart.b()
+ ShowArea{a.b,a.b,1}
+ InitMessage{6}
+ Print land$(lprov.b(a.b))
+ Print " pluendert "
+ Print pro$(a.b)
+ Print ". "
+ b.b=Int(wirt.w(a.b)/#PlunderDivGeld)
+ Print b.b
+ Print " erbeutet!"
+ wirt.w(a.b)*#PlunderProWirt/100
+ Heart.b(a.b,lprov.b(a.b))+#PlunderBeg
+ Geld.w(lprov.b(a.b))+b.b
+ Blanks{2}
+End Statement
+
+Statement ComplOrder{}
+SHARED Order.b(),OrdFlag.b(),Support.b(),Brucke.b(),Plunder.b()
+ BoxClean{}
+ Boxf 269,13,317,49,1
+ Menus Off
+ For byte.b=1 To 82
+  OrdFlag.b(byte.b)=0
+ Next byte
+ SetOrderFlags{}
+ TestEasyMoves{}
+ For byte.b=1 To 82
+  If Order.b(byte.b,2)>0 Then PrepUnSupShip{byte.b}
+  If Order.b(byte.b,1)>0 Then PrepUnSupPanz{byte.b}
+ Next byte
+ For byte.b=1 To 82
+  If Order.b(byte.b,2)<0 Then SupportShip{byte.b}
+  If Order.b(byte.b,1)<0 Then SupportPanz{byte.b}
+ Next byte
+ For byte.b=1 To 82
+  If TestShip{byte.b}=0 AND (OrdFlag.b(byte.b) AND 8)=8 Then MoveShipSup{byte.b}
+  If TestPanz{byte.b}=0 AND (OrdFlag.b(byte.b) AND 4)=4 Then MovePanzSup{byte.b}
+ Next byte
+ TestEasyMoves{}
+ For byte.b=1 To 82
+  If Order.b(byte.b,2)>0 Then AttackShip{byte.b}:TestEasyMoves{}
+  If Order.b(byte.b,1)>0 Then AttackPanz{byte.b}:TestEasyMoves{}
+ Next byte
+ For byte.b=1 To 82
+  If Order.b(byte.b,1)>0 Then PanzTrans{byte.b}:TestEasyMoves{}
+ Next byte
+ For byte.b=1 To 62
+  If Order.b(byte.b,1)=0 AND Plunder.b(byte.b)=1 Then Plundern{byte.b}
+ Next byte
+ For byte.b=1 To 82
+  Order.b(byte.b,1)=0
+  Order.b(byte.b,2)=0
+  Support.b(byte.b,1)=0
+  Support.b(byte.b,2)=0
+  Brucke.b(byte.b)=0
+  If byte.b<63 Then Plunder.b(byte.b)=0
+ Next byte
+ InitMessage{2}
+ Menus On
+End Statement
+
+.PRG
+Gosub Init
+raus.b=0
+TurnsYet.w=22975
+Runde:
+TurnsYet.w+1
+TestRevolt{}
+TestEintritt{}
+For turn.b=1 To 7
+ byte2.b=0
+ For byte.b=1 To 62
+  If lprov.b(byte.b)=turn.b Then byte2.b=1
+ Next byte
+ If byte2.b=0
+  For byte.b=63 To 82
+   If TestShip{byte.b} AND lprov.b(byte.b)=turn.b
+    InitMessage{2}
+    ShowArea{byte.b,byte.b,2}
+    Print "Schiffsverband in "
+    Print pro$(byte.b)
+    Print " loest sich auf!"
+    Blanks{1}
+    UnSetShip{byte.b}
+    ActMap{}
+    Blanks{1}
+   End If
+  Next byte
+ End If
+ If byte2.b=0 Then Goto NextTurn
+ Gosub PreRound
+ WaitUser:
+ Goto WaitInput
+ MousePressed:
+ If vx.w>166 AND vx.w<197 AND vy.w>137 AND vy.w<169 Then ChooseMap{}
+ If vx.w>201 AND vx.w<219 AND vy.w>137 AND vy.w<169 AND LastSpy.b=1
+  spy.b=1
+  Geld.w(turn.b)-#SpyKosten
+  ShowProv{ProvAct.b}
+  InitMessage{2}
+  NPrint "Spion liefert folgende Daten"
+ End If
+ If vx.w<160 AND vy.w<171
+  byte.b=FindProvVX{}
+  If byte.b<>-1 Then ShowProv{byte.b}
+ End If
+ If vx.w>183 AND vx.w<200 AND vy.w>41 AND vy.w<48 AND TestShip{ProvAct.b}>0 AND Own{}=1
+  InitMessage{2}
+  If Order.b(ProvAct.b,2)=0
+   Then NPrint "Keine Befehle fuer Schiff!"
+   Else
+    If Order.b(ProvAct.b,2)>0
+     Then
+      Print "Bewegung nach "
+      Print pro$(Order.b(ProvAct.b,2))
+      NPrint " fuer Schiff vorgesehen!"
+     Else
+      If Brucke.b(ProvAct.b)=0
+       Then
+        Print "Unterstuetzung fuer "
+        byte2.b=Order.b(ProvAct.b,2) AND 127
+        NPrint pro$(byte2.b)
+       Else
+        NPrint "Schiff dient als Seebruecke!"
+      End If
+    End If
+  End If
+ End If
+ If vx.w>221 AND vx.w<238 AND vy.w>40 AND vy.w<49 AND TestPanz{ProvAct.b}>0 AND Own{}=1
+  InitMessage{2}
+  If Order.b(ProvAct.b,1)=0
+   Then
+    If Plunder.b(ProvAct.b)=0
+     Then NPrint "Keine Befehle fuer Panzer!"
+     Else NPrint "Pluenderung vorgesehen!"
+    End If
+   Else
+    If Order.b(ProvAct.b,1)>0
+     Then
+      Print "Bewegung nach "
+      Print pro$(Order.b(ProvAct.b,1))
+      NPrint " fuer Panzer vorgesehen!"
+     Else
+      Print "Unterstuetzung fuer "
+      byte2.b=Order.b(ProvAct.b,1) AND 127
+      NPrint pro$(byte2.b)
+    End If
+  End If
+ End If
+ If vx.w<287 OR vy.w<137 OR vy.w>169 Then Goto WaitUser
+ Raus:
+ If raus.b=1 Then turn.b=7
+ProvView.b(turn.b)=ProvAct.b
+NextTurn:
+Next turn
+If raus.b=0 Then ComplOrder{}:Goto Runde
+InitMessage{2}
+NPrint "Auf Wiedersehen"
+LeftMouse{}
+End
+
+.WaitInput
+While JoyC(0)<>0:WindAnim{}:Wend
+SetMenu 0
+Repeat
+ WindAnim{}
+ word.w=Event
+Until word.w>$FF OR JoyC(0)=1
+InitMessage{2}
+If word.w>$FF Then Goto MenuControl
+vy.w=Peek.w(16+sp.l)
+vx.w=Peek.w(18+sp.l)
+Goto MousePressed
+
+.MenuControl
+If MenuHit=0 AND ItemHit=6 Then raus.b=1:Goto Raus
+If MenuHit=0 AND ItemHit=1 AND turn.b<8 AND turn.b>0
+ Steuer.b(turn.b)=SubHit
+ ActMenu{}
+ InitMessage{7}
+ Print "Die Steuerrate betraegt jetzt "
+ Print SubHit*5
+ Print "%"
+End If
+If MenuHit=0 AND ItemHit=0 Then gamespeed.b=SubHit+1:ActMenu{}
+If MenuHit=0 AND ItemHit=2 AND turn.b<8 AND turn.b>0 Then Goto LoadGame
+If MenuHit=0 AND ItemHit=3 AND turn.b<8 AND turn.b>0 Then Gosub SaveGame
+If MenuHit=0 AND ItemHit=4
+ InitMessage{2}
+ Print "Welcher Provinz Subsidien geben?"
+ byte.b=GetProv{}
+ InitMessage{2}
+ If byte.b>0 AND byte.b<63
+  Geld.w(turn.b)-#SubsKost
+  Heart.b(byte.b,turn.b)+#SubsBeg
+  wirt.w(byte.b)+#SubsWirt
+  Print "Unterstuetzung in "
+  Print pro$(byte.b)
+  Print " jetzt auf "
+  Print Heart.b(byte.b,turn.b)
+  NPrint "%!"
+  ShowProv{byte.b}
+ End If
+End If
+If MenuHit=0 AND ItemHit=5
+ InitMessage{2}
+ Print "Welche Provinz aufwiegeln?"
+ byte.b=GetProv{}
+ InitMessage{2}
+ If byte.b>0 AND byte.b<63 AND lprov.b(byte.b)<8
+  Geld.w(turn.b)-#AufrKost
+  Heart.b(byte.b,lprov.b(byte.b))+#AufrBeg
+  wirt.w(byte.b)+#AufrWirt
+  Print "Waffen und sezessionistisches Propagandamaterial nach "
+  Print pro$(byte.b)
+  NPrint " geschickt!"
+  ShowProv{byte.b}
+ End If
+End If
+If MenuHit=1 AND ItemHit=0
+ SetPanz{ProvAct.b}:ActMap{}
+ AnzDiv.b(turn.b,1)+1
+ Geld.w(turn.b)-#BuyPanz
+ Heart.b(ProvAct.b,turn.b)+#BuyPanzBeg
+ wirt.w(ProvAct.b)+#BuyPanzWirt
+ ShowProv{ProvAct.b}
+End If
+If MenuHit=1 AND ItemHit=1
+ UnSetPanz{ProvAct.b}:ActMap{}
+ AnzDiv.b(turn.b,1)-1
+ wirt.w(ProvAct.b)+#SellPanzWirt
+ ShowProv{ProvAct.b}
+End If
+If MenuHit=1 AND ItemHit=2
+ InitMessage{2}
+ NPrint "Wohin?"
+ byte2.b=GetProv{}
+ InitMessage{2}
+ If byte2.b<>-1
+  If TestAnr{ProvAct.b,byte2.b,1}>0 OR (byte2.b<63 AND byte2.b<>ProvAct.b AND TestWasser{byte2.b}>0 AND TestWasser{ProvAct.b}>0)
+   Plunder.b(ProvAct.b)=0
+   Order.b(ProvAct.b,1)=byte2.b
+   NPrint "Befehl entgegengenommen!"
+  End If
+ End If
+End If
+If MenuHit=2 AND ItemHit=0
+ SetShip{ProvAct.b}
+ ActMap{}
+ AnzDiv.b(turn.b,2)+1
+ Geld.w(turn.b)-#BuyShip
+ Heart.b(ProvAct.b,turn.b)+#BuyShipBeg
+ wirt.w(ProvAct.b)+#BuyShipWirt
+ ShowProv{ProvAct.b}
+End If
+If MenuHit=2 AND ItemHit=1
+ UnSetShip{ProvAct.b}
+ ActMap{}
+ AnzDiv.b(turn.b,2)-1
+ If ProvAct.b<63 Then wirt.w(ProvAct.b)+#SellShipWirt
+ ShowProv{ProvAct.b}
+End If
+If MenuHit=2 AND ItemHit=2
+ InitMessage{2}
+ NPrint "Wohin?"
+ byte2.b=GetProv{}
+ InitMessage{2}
+ If byte2.b<>-1
+  If TestAnr{ProvAct.b,byte2.b,2}
+   Order.b(ProvAct.b,2)=byte2.b
+   Brucke.b(ProvAct.b)=0
+   NPrint "Befehl entgegengenommen!"
+  End If
+ End If
+End If
+If MenuHit=1 AND ItemHit=3
+ InitMessage{2}
+ NPrint "Welche Einheit?"
+ byte2.b=GetProv{}
+ InitMessage{2}
+ If byte2.b<>-1
+  If TestPanz{byte2.b}>0
+   Plunder.b(ProvAct.b)=0
+   Order.b(ProvAct.b,1)=byte2.b OR 128
+   NPrint "Befehl entgegengenommen!"
+  End If
+ End If
+End If
+If MenuHit=2 AND ItemHit=3
+ InitMessage{2}
+ NPrint "Welche Einheit?"
+ byte2.b=GetProv{}
+ InitMessage{2}
+ If byte2.b<>-1
+  If TestShip{byte2.b}>0
+   Brucke.b(ProvAct.b)=0
+   Order.b(ProvAct.b,2)=byte2.b OR 128
+   NPrint "Befehl entgegengenommen!"
+  End If
+ End If
+End If
+If MenuHit=1 AND ItemHit=4
+ InitMessage{2}
+ NPrint "Provinz wird gepluendert!"
+ Order.b(ProvAct.b,1)=0
+ Plunder.b(ProvAct.b)=1
+End If
+If MenuHit=2 AND ItemHit=4
+ InitMessage{2}
+ NPrint "Seebruecke wird eingerichtet!"
+ Order.b(ProvAct.b,2)=128
+ Brucke.b(ProvAct.b)=1
+End If
+Goto WaitUser
+Dim x.w(62,2),y.w(62,2),lprov.b(82),wirt.w(62),Order.b(82,2)
+Dim kland.b(140),koor.w(140,4),pro$(82),flag.b(82),WirtMacht.w(7)
+Dim PanzXY.w(62,2),ShipXY.w(82,2),MoveL.b(62,7),MoveW.b(82,12)
+Dim MoveAnz.b(82,2),land$(8),Wind.w(16),WindO.b(16),Beg.b(7)
+Dim OrdFlag.b(82),ProvView.b(7),Brucke.b(82),Steuer.b(7)
+Dim Support.b(82,2),Heart.b(62,7),AnzDiv.b(7,2),Geld.w(7)
+Dim Plunder.b(62)
+
+.SaveGame
+byte.b=OpenFile(0,GetFileName{})
+If byte.b=0 Then Return
+FileOutput 0
+Print Chr$(turn.b)
+Print Chr$(gamespeed.b)
+Print Chr$(ProvAct.b)
+Print Mki$(xpos.w)
+Print Mki$(ypos.w)
+Print Mki$(TurnsYet.w)
+For byte.b=1 To 82
+ Print Chr$(lprov.b(byte.b))
+ Print Chr$(flag.b(byte.b))
+ Print Chr$(Order.b(byte.b,1))
+ Print Chr$(Order.b(byte.b,2))
+ Print Chr$(Brucke.b(byte.b))
+ If byte.b<63
+  Print Mki$(wirt.w(byte.b))
+  Print Chr$(Plunder.b(byte.b))
+  For byte2.b=1 To 7
+   Print Chr$(Heart.b(byte.b,byte2.b))
+  Next byte2
+ End If
+Next byte
+For byte.b=1 To 7
+ Print Chr$(ProvView.b(byte.b))
+ Print Chr$(Steuer.b(byte.b))
+ Print Chr$(Beg.b(byte.b))
+ Print Mki$(WirtMacht.w(byte.b))
+ Print Chr$(AnzDiv.b(byte.b,1))
+ Print Chr$(AnzDiv.b(byte.b,2))
+ Print Mki$(Geld.w(byte.b))
+Next byte
+CloseFile 0
+WindowOutput 0
+InitMessage{2}
+Print "Spiel gesichert!"
+Return
+
+.LoadGame
+Use BitMap 0
+For byte.b=1 To 82
+ If TestPanz{byte.b} Then ErasePanz{byte.b}
+ If TestShip{byte.b} Then EraseShip{byte.b}
+Next byte
+byte.b=OpenFile(0,GetFileName{})
+If byte.b=0 Then Goto WaitUser
+FileInput 0
+turn.b=Asc(Inkey$)
+gamespeed.b=Asc(Inkey$)
+ProvAct.b=Asc(Inkey$)
+xpos.w=Cvi(Inkey$+Inkey$)
+ypos.w=Cvi(Inkey$+Inkey$)
+TurnsYet.w=Cvi(Inkey$+Inkey$)
+For byte.b=1 To 82
+ byte2.b=Asc(Inkey$)
+ flag.b(byte.b)=Asc(Inkey$)
+ If TestPanz{byte.b} Then Use BitMap 0:DrawPanz{byte.b}
+ If TestShip{byte.b} Then Use BitMap 0:DrawShip{byte.b}
+ If byte2.b<>lprov.b(byte.b)
+  lprov.b(byte.b)=byte2.b
+  PaintLand{byte.b}
+ End If
+ Order.b(byte.b,1)=Asc(Inkey$)
+ Order.b(byte.b,2)=Asc(Inkey$)
+ Brucke.b(byte.b)=Asc(Inkey$)
+ If byte.b<63
+  wirt.w(byte.b)=Cvi(Inkey$+Inkey$)
+  Plunder.b(byte.b)=Asc(Inkey$)
+  For byte2.b=1 To 7
+   Heart.b(byte.b,byte2.b)=Asc(Inkey$)
+  Next byte2
+ End If
+Next byte
+For byte.b=1 To 7
+ ProvView.b(byte.b)=Asc(Inkey$)
+ Steuer.b(byte.b)=Asc(Inkey$)
+ Beg.b(byte.b)=Asc(Inkey$)
+ WirtMacht.w(byte.b)=Cvi(Inkey$+Inkey$)
+ AnzDiv.b(byte.b,1)=Asc(Inkey$)
+ AnzDiv.b(byte.b,2)=Asc(Inkey$)
+ Geld.w(byte.b)=Cvi(Inkey$+Inkey$)
+Next byte
+CloseFile 0
+WindowInput 0
+Use BitMap 0
+ActMap{}
+ShowProv{ProvAct.b}
+DrawFlag{turn.b}
+InitMessage{2}
+Print "Spiel geladen!"
+Goto WaitUser
+
+.Init
+MenuTitle 0,0," "
+BitMap 1,320,244,4
+LoadPalette 0,PicsPath$+"DiplomacyScreen"
+LoadPalette 1,PalettePath$+"black16"
+LoadFont 0,"Helvetica.font",9
+Screen 0,0,0,320,244,4,0,"Diplomacy",2,1,1
+sp.l=Peek.l(Addr Screen(0))
+Window 0,0,0,320,244,$1800,"Diplomacy",2,1
+DefaultIDCMP $108
+SetMenu 0
+Use Palette 1
+WindowFont 0
+LoadSound 0,SamplePath$+"shot"
+LoadSound 1,SamplePath$+"peng2"
+LoadBitMap 1,PicsPath$+"DiplomacyScreen"
+For n=1 To 140
+ For nn=1 To 4
+  Read koor.w(n,nn)
+  koor.w(n,nn)+44
+  If nn=2 OR nn=4 Then koor.w(n,nn)-12
+ Next nn
+ Read kland.b(n)
+Next n
+For n=1 To 82
+ Read pro$(n)
+ If n<63
+  For nn=1 To 7
+   Read Heart.b(n,nn)
+  Next nn
+  Read x.w(n,1),y.w(n,1)
+  Read x.w(n,2),y.w(n,2)
+  For nn=1 To 2
+   Read PanzXY.w(n,nn)
+  Next nn
+ End If
+ For nn=1 To 2
+  Read ShipXY.w(n,nn)
+  ShipXY.w(n,nn)-4
+  If nn=1 Then ShipXY.w(n,nn)-4
+ Next nn
+ Read lprov.b(n)
+ If n<63 Then Read byte.b:wirt.w(n)=byte.b:If byte.b<0 Then wirt.w(n)+256
+ Read flag.b(n)
+Next n
+For n=1 To 82
+ Read MoveAnz.b(n,1),MoveAnz.b(n,2)
+ For nn=1 To 2
+  If MoveAnz.b(n,nn)>0
+   For byte.b=1 To MoveAnz.b(n,nn)
+    If nn=1 Then Read MoveL.b(n,byte.b)
+    If nn=2 Then Read MoveW.b(n,byte.b)
+   Next byte
+  End If
+ Next nn
+Next n
+For n=1 To 8
+ Read land$(n)
+Next n
+For n=1 To 16
+ Read byte.b
+ Wind.w(n)=byte.b+268
+ Read byte.b
+ WindO.b(n)=13+byte.b
+Next n
+For n=1 To 12
+ Read Monat$(n)
+Next n
+GetaShape 86,202,139,17,30
+BitMap 0,640,512,4
+LoadBitMap 0,PicsPath$+"Diplomacy"
+LoadShape 0,BrushPath$+"Panzer"
+LoadShape 76,BrushPath$+"Ship"
+LoadShape 145,BrushPath$+"DiplReich"
+LoadShape 146,BrushPath$+"DiplFrance"
+LoadShape 147,BrushPath$+"DiplUK"
+LoadShape 148,BrushPath$+"DiplRussia"
+LoadShape 149,BrushPath$+"DiplItalia"
+LoadShape 150,BrushPath$+"DiplKuK"
+LoadShape 151,BrushPath$+"DiplOsman"
+LoadShape 152,BrushPath$+"DiplNeutr"
+WindON=0
+ProvView.b(1)=33
+ProvView.b(2)=24
+ProvView.b(3)=20
+ProvView.b(4)=42
+ProvView.b(5)=51
+ProvView.b(6)=44
+ProvView.b(7)=57
+Beg.b(1)=77
+Beg.b(2)=71
+Beg.b(3)=69
+Beg.b(4)=62
+Beg.b(5)=72
+Beg.b(6)=71
+Beg.b(7)=71
+Geld.w(1)=200
+Geld.w(2)=160
+Geld.w(3)=200
+Geld.w(4)=120
+Geld.w(5)=140
+Geld.w(6)=140
+Geld.w(7)=110
+gamespeed.b=3
+For byte.b=1 To 7
+ Steuer.b(byte.b)=1
+Next byte
+For byte.b=1 To 82
+ If TestPanz{byte.b} Then DrawPanz{byte.b}
+ If TestShip{byte.b} Then DrawShip{byte.b}
+Next byte
+Use Palette 0
+Return
+
+.PreRound
+DrawFlag{turn.b}
+AnzDiv.b(turn.b,1)=0
+AnzDiv.b(turn.b,2)=0
+WirtMacht.w(turn.b)=0
+beg1.b=-Beg.b(turn.b)
+ShowProv{ProvView.b(turn.b)}
+For byte.b=1 To 82
+ If lprov.b(byte.b)=turn.b
+  byte2.b=0
+  If TestPanz{byte.b}>0 Then AnzDiv.b(turn.b,1)+1:byte2.b=#PanzProvUnt
+  If TestShip{byte.b}>0 Then AnzDiv.b(turn.b,2)+1:byte2.b+#ShipProvUnt
+  If byte.b<63
+  wirt.w(byte.b)-byte2.b
+   If Heart.b(byte.b,turn.b)+Rnd*15>50
+    Then
+     WirtMacht.w(turn.b)+wirt.w(byte.b)
+     Heart.b(byte.b,turn.b)-Steuer.b(turn.b)+#BegTaxSame
+     wirt.w(byte.b)-(Steuer.b(turn.b)+#WirtTaxSame)*WirtTaxFact
+    Else
+     ShowArea{byte.b,byte.b,1}
+     InitMessage{9}
+     Print "Die Provinz "
+     Print pro$(byte.b)
+     NPrint " weigert sich, Steuern zu zahlen!"
+     Heart.b(byte.b,turn.b)+1
+     Blanks{2}
+   End If
+  If wirt.w(byte.b)<0 Then wirt.w(byte.b)=0
+  End If
+ End If
+Next byte
+ShowArea{ProvAct.b,ProvAct.b,1}
+InitMessage{2}
+word.w=Int(WirtMacht.w(turn.b)*Steuer.b(turn.b)/20)
+Print "Die Steuereinnahmen belaufen sich auf "
+NPrint word.w
+Geld.w(turn.b)+word.w
+word.w=AnzDiv.b(turn.b,1)*#PanzUnt+AnzDiv.b(turn.b,2)*#ShipUnt
+Print "Unterhaltskosten fuer Divisionen belaufen sich auf "
+NPrint word.w
+Geld.w(turn.b)-word.w
+For byte.b=1 To 62
+ If lprov.b(byte.b)=turn.b
+  If Geld.w(turn.b)<0 Then Heart.b(byte.b,turn.b)-Int(Abs(Geld.w(turn.b))/#InflDivBeg)
+ End If
+Next byte
+If Geld.w(turn.b)<0
+ WColour 9
+ NPrint "Zur Tilgung der Zinsen wird Geld nachgedruckt - INFLATION!"
+End If
+word.w=WCursX
+word2.w=WCursY
+ShowProv{ProvAct.b}
+WLocate word.w,word2.w
+WColour 2
+Print "Die Kriegsbegeisterung "
+beg1.b+Beg.b(turn.b)
+If beg1.b=0
+ Then NPrint "bleibt geich"
+ Else
+  If beg1.b>0
+   Then WColour 8:Print "steigt um "
+   Else WColour 9:Print "sinkt um "
+  End If
+  Print Abs(beg1.b)
+  NPrint "%"
+End If
+Return
+
+.KlickProv
+Data.w  94, 20,136, 47
+Data.b 1
+Data.w 214,107,247,142
+Data.b 2
+Data.w 290, 21,334, 38
+Data.b 2
+Data.w 253, 48,264,102
+Data.b 2
+Data.w 273, 44,287, 55
+Data.b 2
+Data.w 239, 95,254,130
+Data.b 2
+Data.w 265, 60,277, 70
+Data.b 2
+Data.w 248, 98,289,173
+Data.b 3
+Data.w 269, 51,300, 98
+Data.b 3
+Data.w 289, 43,313, 70
+Data.b 3
+Data.w 307, 41,343,124
+Data.b 36
+Data.w 327,109,391,155
+Data.b 37
+Data.w 338, 26,521,126
+Data.b 38
+Data.w 410,  1,521, 25
+Data.b 38
+Data.w 393,127,437,152
+Data.b 38
+Data.w 357,152,521,222
+Data.b 39
+Data.w 287, 70,327,170
+Data.b 68
+Data.w 305,156,351,207
+Data.b 40
+Data.w 329,  1,410, 24
+Data.b 63
+Data.w   1, 66,125,148
+Data.b 71
+Data.w   1,149, 75,213
+Data.b 71
+Data.w  81, 49,143,124
+Data.b 71
+Data.w   1,  1,107, 66
+Data.b 70
+Data.w 109,  1,328,124
+Data.b 69
+Data.w 362,389,473,417
+Data.b 58
+Data.w 450,375,483,390
+Data.b 58
+Data.w 425,424,444,438
+Data.b 58
+Data.w 457,383,520,448
+Data.b 55
+Data.w  78,155,110,190
+Data.b 17
+Data.w 108,153,121,171
+Data.b 17
+Data.w 124,122,155,164
+Data.b 18
+Data.w  76,150,136,181
+Data.b 71
+Data.w 128,168,142,199
+Data.b 19
+Data.w 141,165,152,202
+Data.b 22
+Data.w 109,200,138,218
+Data.b 21
+Data.w 118,190,129,201
+Data.b 21
+Data.w 137,202,160,222
+Data.b 20
+Data.w 140,232,168,246
+Data.b 25
+Data.w 166,240,180,250
+Data.b 25
+Data.w 156,227,166,232
+Data.b 25
+Data.w 179,206,200,227
+Data.b 62
+Data.w 166,224,188,245
+Data.b 61
+Data.w 101,235,136,254
+Data.b 23
+Data.w 113,253,139,277
+Data.b 23
+Data.w  89,219,158,242
+Data.b 73
+Data.w  60,177,131,228
+Data.b 74
+Data.w 219,160,234,182
+Data.b 4
+Data.w 237,182,243,190
+Data.b 4
+Data.w 195,176,218,202
+Data.b 65
+Data.w 197,187,228,230
+Data.b 30
+Data.w 205,229,227,240
+Data.b 30
+Data.w 146,125,217,224
+Data.b 64
+Data.w 216,143,248,193
+Data.b 66
+Data.w 287,195,310,218
+Data.b 35
+Data.w 259,200,287,228
+Data.b 35
+Data.w 227,201,258,234
+Data.b 33
+Data.w 220,166,306,205
+Data.b 67
+Data.w 107,280,154,306
+Data.b 27
+Data.w 108,306,132,320
+Data.b 27
+Data.w 129,294,184,329
+Data.b 28
+Data.w   1,401, 71,450
+Data.b 9
+Data.w  24,395, 39,403
+Data.b 9
+Data.w  43,382,100,397
+Data.b 81
+Data.w  55,397,100,405
+Data.b 81
+Data.w 184,408,205,439
+Data.b 11
+Data.w 165,436,197,449
+Data.b 11
+Data.w  71,400,180,450
+Data.b 10
+Data.w  31,385, 57,403
+Data.b 7
+Data.w  61,353, 99,381
+Data.b 5
+Data.w 102,323,142,338
+Data.b 5
+Data.w  85,337,119,353
+Data.b 5
+Data.w  31,357, 54,386
+Data.b 7
+Data.w  54,369, 66,390
+Data.b 7
+Data.w  17,326, 38,363
+Data.b 8
+Data.w  28,308, 54,330
+Data.b 8
+Data.w 103,350,128,368
+Data.b 75
+Data.w  38,299,108,372
+Data.b 6
+Data.w 129,362,138,369
+Data.b 5
+Data.w  39,286, 79,299
+Data.b 6
+Data.w 191,337,200,353
+Data.b 29
+Data.w 185,359,197,383
+Data.b 54
+Data.w 196,338,213,370
+Data.b 76
+Data.w 119,320,208,366
+Data.b 75
+Data.w  95,364,189,410
+Data.b 81
+Data.w   1,212,115,412
+Data.b 72
+Data.w 184,295,213,327
+Data.b 53
+Data.w 155,246,171,263
+Data.b 24
+Data.w 133,241,156,280
+Data.b 24
+Data.w 170,251,183,263
+Data.b 26
+Data.w 153,263,189,299
+Data.b 26
+Data.w 213,244,240,282
+Data.b 32
+Data.w 200,253,215,280
+Data.b 32
+Data.w 191,261,202,281
+Data.b 32
+Data.w 174,226,213,269
+Data.b 31
+Data.w 212,233,248,248
+Data.b 32
+Data.w 272,245,292,257
+Data.b 34
+Data.w 246,227,286,250
+Data.b 34
+Data.w 238,249,282,269
+Data.b 45
+Data.w 282,206,350,257
+Data.b 41
+Data.w 328,268,349,283
+Data.b 48
+Data.w 280,254,348,268
+Data.b 48
+Data.w 210,266,254,295
+Data.b 43
+Data.w 212,295,224,302
+Data.b 43
+Data.w 253,269,284,288
+Data.b 44
+Data.w 252,288,270,295
+Data.b 44
+Data.w 320,309,380,332
+Data.b 15
+Data.w 344,284,368,311
+Data.b 15
+Data.w 237,297,275,319
+Data.b 47
+Data.w 274,313,292,348
+Data.b 47
+Data.w 269,265,347,322
+Data.b 46
+Data.w 289,350,306,382
+Data.b 13
+Data.w 290,321,324,367
+Data.b 14
+Data.w 256,318,277,338
+Data.b 47
+Data.w 323,332,373,357
+Data.b 16
+Data.w 305,369,337,421
+Data.b 12
+Data.w 311,355,355,369
+Data.b 12
+Data.w 383,294,414,312
+Data.b 79
+Data.w 426,277,452,295
+Data.b 79
+Data.w 400,348,472,383
+Data.b 56
+Data.w 474,341,521,382
+Data.b 59
+Data.w 356,355,399,389
+Data.b 57
+Data.w 413,295,432,312
+Data.b 42
+Data.w 372,313,490,360
+Data.b 79
+Data.w 429,298,462,318
+Data.b 79
+Data.w 340,222,521,350
+Data.b 42
+Data.w 330,432,361,442
+Data.b 60
+Data.w 321,364,382,433
+Data.b 80
+Data.w 342,410,465,450
+Data.b 82
+Data.w 211,293,239,331
+Data.b 52
+Data.w 224,331,242,344
+Data.b 52
+Data.w 222,400,251,419
+Data.b 50
+Data.w 225,359,226,366
+Data.b 76
+Data.w 199,324,240,360
+Data.b 51
+Data.w 253,375,270,405
+Data.b 50
+Data.w 232,360,260,376
+Data.b 50
+Data.w 183,360,258,407
+Data.b 76
+Data.w 237,348,258,365
+Data.b 49
+Data.w 259,364,281,382
+Data.b 49
+Data.w 226,314,299,374
+Data.b 77
+Data.w 175,364,349,450
+Data.b 78
+
+.Provinces
+Data$ "Island"
+Data.b 60,60,60,60,60,60,55
+Data.w 160, 65, 44, 32,152, 61,157, 80
+Data.b 8,10,%00011100
+Data$ "Norwegen"
+Data.b 60,60,60,50,55,55,50
+Data.w 323, 78, 44, 32,273,148,319, 72
+Data.b 8,100,%00001100
+Data$ "Schweden"
+Data.b 60,55,55,45,55,55,50
+Data.w 315,141, 44, 32,307,137,326,182
+Data.b 8,130,%00001101
+Data$ "Daenemark"
+Data.b 50,55,55,50,55,55,50
+Data.w 271,207,284,217,263,205,267,202
+Data.b 8,80,%00001100
+Data$ "Katalonien"
+Data.b 55,45,50,50,50,55,40
+Data.w 133,389,176,397,125,385,167,376          ;5
+Data.b 8,120,%00001101
+Data$ "Aragon"
+Data.b 55,45,45,50,50,55,45
+Data.w 120,357, 44, 32,112,353,120,327
+Data.b 8,130,%00001101
+Data$ "Gibraltar"
+Data.b 45,50,55,50,50,50,40
+Data.w  89,400, 87,429, 81,396, 82,417
+Data.b 3,70,%00001110
+Data$ "Portugal"
+Data.b 55,50,55,50,50,55,45
+Data.w  77,363, 44, 32, 69,356, 73,349
+Data.b 8,100,%00001100
+Data$ "Marokko"
+Data.b 45,55,50,45,45,45,65
+Data.w  81,455, 44, 32, 73,451, 60,433
+Data.b 2,40,%00001100
+Data$ "Algerien"
+Data.b 45,60,50,45,45,45,65
+Data.w 166,460, 44, 32,158,456,192,435          ;10
+Data.b 2,70,%00001100
+Data$ "Tunesien"
+Data.b 45,60,50,45,45,45,65
+Data.w 232,465, 44, 32,224,461,239,445
+Data.b 2,50,%00001100
+Data$ "Griechenland"
+Data.b 55,55,65,50,55,55,40
+Data.w 361,422, 44, 32,353,418,358,436
+Data.b 8,110,%00001101
+Data$ "Albanien"
+Data.b 55,55,55,55,50,50,45
+Data.w 341,397, 44, 32,331,390,335,405
+Data.b 8,50,%00001100
+Data$ "Serbien"
+Data.b 45,55,55,70,50,35,40
+Data.w 353,373, 44, 32,345,369,  0,  0
+Data.b 8,90,%00000101
+Data$ "Rumaenien"
+Data.b 45,55,65,60,50,40,40
+Data.w 403,347, 44, 32,395,343,419,354          ;15
+Data.b 8,110,%00001101
+Data$ "Bulgarien"
+Data.b 69,45,45,45,50,55,50
+Data.w 388,377, 44, 32,380,373,411,375
+Data.b 8,120,%00001101
+Data$ "Irland"
+Data.b 50,50,50,45,50,50,45
+Data.w 148,205, 44, 32,140,201,140,226
+Data.b 3,80,%00011100
+Data$ "Schottland"
+Data.b 40,50,60,45,45,45,45
+Data.w 184,179, 44, 32,176,175,194,169
+Data.b 3,140,%00001100
+Data$ "Midlands"
+Data.b 30,50,80,45,50,40,40
+Data.w 184,216, 44, 32,170,212,175,200
+Data.b 3,200,%00001100
+Data$ "London"
+Data.b 25,50,85,45,50,40,40
+Data.w 192,242, 44, 32,184,238,186,256          ;20
+Data.b 3,230,%00001110
+Data$ "Wales"
+Data.b 35,50,75,45,50,40,40
+Data.w 164,238, 44, 32,161,234,164,251
+Data.b 3,140,%00001100
+Data$ "Yorkshire"
+Data.b 30,50,80,45,50,40,40
+Data.w 194,218, 44, 32,188,218,197,209
+Data.b 3,160,%00001100
+Data$ "Bretagne"
+Data.b 35,75,50,45,50,40,40
+Data.w 169,289, 44, 32,163,290,164,274
+Data.b 2,130,%00001110
+Data$ "Ile-de-France"
+Data.b 25,85,50,45,50,40,40
+Data.w 194,293, 44, 32,186,289,  0,  0
+Data.b 2,200,%00000100
+Data$ "Picardie"
+Data.b 30,80,50,45,50,40,40
+Data.w 207,270, 44, 32,199,269,193,268          ;25
+Data.b 2,120,%00001100
+Data$ "Burgund"
+Data.b 30,80,55,50,50,40,40
+Data.w 217,305, 44, 32,209,301,  0,  0
+Data.b 2,130,%00000101
+Data$ "Gascogne"
+Data.b 35,75,50,50,50,40,40
+Data.w 172,333, 44, 32,164,329,154,325
+Data.b 2,100,%00001100
+Data$ "Provence"
+Data.b 30,75,50,45,45,40,40
+Data.w 212,343, 44, 32,204,339,204,356
+Data.b 2,120,%00001100
+Data$ "Korsika"
+Data.b 35,60,45,40,50,40,35
+Data.w 239,378, 44, 32,231,378,239,370
+Data.b 2,40,%00011100
+Data$ "Sachsen"
+Data.b 80,30,30,30,40,50,45
+Data.w 260,250, 44, 32,252,246,258,234          ;30
+Data.b 1,180,%00001100
+Data$ "Rheinland"
+Data.b 75,35,35,35,40,50,45
+Data.w 240,277, 44, 32,232,276,  0,  0
+Data.b 1,220,%00000101
+Data$ "Bayern"
+Data.b 75,30,35,30,30,55,45
+Data.w 264,290, 44, 32,256,286,  0,  0
+Data.b 1,190,%00000100
+Data$ "Brandenburg"
+Data.b 85,25,25,25,40,50,45
+Data.w 288,250, 44, 32,280,246,293,232
+Data.b 1,210,%00001100
+Data$ "Schlesien"
+Data.b 75,35,35,30,40,60,45
+Data.w 317,272, 44, 32,309,268,  0,  0
+Data.b 1,150,%00000100
+Data$ "Preussen"
+Data.b 70,40,40,30,40,50,45
+Data.w 327,244, 44, 32,319,240,334,231          ;35
+Data.b 1,120,%00001101
+Data$ "Finnland"
+Data.b 45,50,50,55,50,45,40
+Data.w 376,121, 44, 32,368,117,355,165
+Data.b 4,60,%00001100
+Data$ "St. Petersburg"
+Data.b 35,50,50,70,50,40,40
+Data.w 409,164, 44, 32,401,160,387,169
+Data.b 4,150,%00001100
+Data$ "Sibirien"
+Data.b 35,50,50,70,50,40,40
+Data.w 481,113,460, 42,473,109,436, 73
+Data.b 4,70,%00001100
+Data$ "Moskau"
+Data.b 30,45,45,70,45,35,30
+Data.w 477,216, 44, 32,469,212,  0,  0
+Data.b 4,160,%00000100
+Data$ "Livland"
+Data.b 30,45,45,55,45,35,35
+Data.w 375,211,356,186,367,207,365,198          ;40
+Data.b 4,110,%00001100
+Data$ "Polen"
+Data.b 30,45,40,50,40,30,35
+Data.w 365,261, 44, 32,357,257,  0,  0
+Data.b 4,150,%00000101
+Data$ "Ukraine"
+Data.b 35,45,45,65,45,35,30
+Data.w 481,297, 44, 32,473,293,483,333
+Data.b 4,160,%00001110
+Data$ "Tirol"
+Data.b 50,35,35,35,25,80,45
+Data.w 276,321, 44, 32,268,317,  0,  0
+Data.b 6,70,%00000100
+Data$ "Wien"
+Data.b 50,35,35,30,30,85,40
+Data.w 311,310, 44, 32,303,306,  0,  0
+Data.b 6,170,%00000100
+Data$ "Boehmen"
+Data.b 45,35,35,35,35,65,45
+Data.w 300,289, 44, 32,292,285,  0,  0          ;45
+Data.b 6,140,%00000100
+Data$ "Ungarn"
+Data.b 45,35,35,40,35,65,40
+Data.w 353,327, 44, 32,345,323,  0,  0
+Data.b 6,130,%00000101
+Data$ "Dalmatien"
+Data.b 45,35,35,40,40,65,40
+Data.w 312,347, 44, 32,304,343,292,349
+Data.b 6,160,%00001100
+Data$ "Galizien"
+Data.b 50,35,35,45,35,65,40
+Data.w 361,293, 44, 32,353,289,  0,  0
+Data.b 6,120,%00000101
+Data$ "Apulien"
+Data.b 35,50,50,45,75,30,30
+Data.w 296,393, 44, 32,288,382,317,401
+Data.b 5,90,%00001100
+Data$ "Neapel"
+Data.b 35,50,50,45,75,35,30
+Data.w 300,406,284,440,296,410,281,433          ;50
+Data.b 5,120,%00001100
+Data$ "Lazio"
+Data.b 30,50,50,45,80,35,30
+Data.w 267,372, 44, 32,253,368,270,390
+Data.b 5,150,%00001101
+Data$ "Venedig"
+Data.b 30,50,50,40,75,25,25
+Data.w 267,351, 44, 32,259,347,279,367
+Data.b 5,160,%00001100
+Data$ "Piemont"
+Data.b 30,40,45,45,65,30,30
+Data.w 243,338, 44, 32,235,334,241,350
+Data.b 5,160,%00001100
+Data$ "Sardinien"
+Data.b 30,40,45,45,60,30,25
+Data.w 235,403, 44, 32,227,404,234,393
+Data.b 5,60,%00011100
+Data$ "Syrien"
+Data.b 40,40,40,35,35,40,55
+Data.w 538,453, 44, 32,530,449,504,458          ;55
+Data.b 7,100,%00001100
+Data$ "Ankara"
+Data.b 45,35,35,25,35,40,80
+Data.w 479,397, 44, 32,471,393,489,378
+Data.b 7,120,%00001100
+Data$ "Konstantinopel"
+Data.b 50,35,25,25,35,40,85
+Data.w 409,391,426,408,401,387,418,401
+Data.b 7,150,%00001101
+Data$ "Smyrna"
+Data.b 45,35,35,30,35,40,75
+Data.w 468,430,478,462,460,426,456,448
+Data.b 7,130,%00001100
+Data$ "Armenien"
+Data.b 45,40,40,30,40,40,60
+Data.w 542,394, 44, 32,534,390,527,372
+Data.b 7,90,%00001100
+Data$ "Kreta"
+Data.b 50,50,55,50,50,50,40
+Data.w 388,471, 44, 32,374,467,399,469          ;60
+Data.b 8,70,%00011100
+Data$ "Belgien"
+Data.b 40,45,50,45,45,40,40
+Data.w 224,268, 44, 32,217,264,209,255
+Data.b 8,180,%00001101
+Data$ "Holland"
+Data.b 45,45,45,40,45,45,40
+Data.w 234,252, 44, 32,221,248,232,243
+Data.b 8,190,%00001101
+Data$ "Barentsee"
+Data.w 416, 40
+Data.b 8,%00011000
+Data$ "Nordsee"
+Data.w 223,190
+Data.b 8,%00011000
+Data$ "Helgoland"                               ;65
+Data.w 249,222
+Data.b 8,%00011000
+Data$ "Skagerrak"
+Data.w 277,187
+Data.b 8,%00011000
+Data$ "Ostsee"
+Data.w 319,220
+Data.b 8,%00011000
+Data$ "Bottnischer Meerbusen"
+Data.w 346,176
+Data.b 8,%00011000
+Data$ "Nordmeer"
+Data.w 237, 79
+Data.b 8,%00011000
+Data$ "Polarmeer"                               ;70
+Data.w  79, 61
+Data.b 8,%00011000
+Data$ "Nordatlantik"
+Data.w  94,163
+Data.b 8,%00011000
+Data$ "Mittelatlantik"
+Data.w  68,285
+Data.b 8,%00011000
+Data$ "rmelkanal"
+Data.w 150,263
+Data.b 8,%00011000
+Data$ "Irische See"
+Data.w 131,239
+Data.b 8,%00011000
+Data$ "Golf von Lyon"                           ;75
+Data.w 201,378
+Data.b 8,%00011000
+Data$ "Tyrrhenisches Meer"
+Data.w 262,410
+Data.b 8,%00011000
+Data$ "Adria"
+Data.w 303,378
+Data.b 8,%00011000
+Data$ "Ionisches Meer"
+Data.w 324,454
+Data.b 8,%00011000
+Data$ "Schwarzes Meer"
+Data.w 467,361
+Data.b 8,%00011000
+Data$ "gaeisches Meer"                          ;80
+Data.w 395,445
+Data.b 8,%00011000
+Data$ "Westliches Mittelmeer"
+Data.w 166,419
+Data.b 8,%00011000
+Data$ "stliches Mittelmeer"
+Data.w 443,469
+Data.b 8,%00011000
+
+.Anreiner
+Data.b 0,3
+Data.b 70,71,69
+Data.b 3,6
+Data.b 38,36, 3,69,63,64,66,38, 3
+Data.b 2,5
+Data.b  2,36, 2,66,67,68,36
+Data.b 1,4
+Data.b 30,64,65,66,30
+Data.b 4,4
+Data.b 28,27, 6, 7,28,75,81, 7                 ;5
+Data.b 4,3
+Data.b  8, 7, 5,27,27, 8,72
+Data.b 5,6
+Data.b 10, 8, 6, 5, 9,72, 8, 5, 9,81,10
+Data.b 2,3
+Data.b  6, 7,72, 6, 7
+Data.b 2,2
+Data.b  7,10, 7,72
+Data.b 3,3
+Data.b  9,11, 7, 7,81,11                       ;10
+Data.b 1,4
+Data.b 10,78,76,81,10
+Data.b 4,4
+Data.b 57,16,14,13,78,80,13,57
+Data.b 3,4
+Data.b 12,14,47,46,12,78,77
+Data.b 6,0
+Data.b 47,46,15,16,12,13
+Data.b 5,3
+Data.b 42,48,46,14,16,42,16,79                 ;15
+Data.b 4,3
+Data.b 15,14,12,57,15,57,79
+Data.b 0,2
+Data.b 71,74
+Data.b 2,5
+Data.b 19,22,71,69,64,22,19
+Data.b 3,4
+Data.b 22,18,21,18,71,74,21
+Data.b 2,4
+Data.b 21,22,21,64,73,64                       ;20
+Data.b 3,4
+Data.b 20,22,71,74,19,20,73
+Data.b 4,3
+Data.b 19,18,21,20,64,18,20
+Data.b 3,4
+Data.b 25,24,27,73,72,25,27
+Data.b 4,0
+Data.b 23,25,26,27
+Data.b 4,3
+Data.b 61,26,24,23,61,23,73                    ;25
+Data.b 7,0
+Data.b 61,31,32,28,27,24,25
+Data.b 6,3
+Data.b  5, 6,23,24,26,28,72, 6,23
+Data.b 4,3
+Data.b 53, 5,27,26,75,53, 5
+Data.b 0,3
+Data.b 75,76,54
+Data.b 6,6
+Data.b 62,61, 4,33,32,31, 4,66,67,65,33,62     ;30
+Data.b 4,0
+Data.b 61,30,32,26
+Data.b 7,0
+Data.b 26,31,30,33,34,45,43
+Data.b 4,3
+Data.b 35,34,32,30,30,35,67
+Data.b 6,0
+Data.b 41,48,45,32,33,35
+Data.b 4,3
+Data.b 40,41,34,33,40,33,67                    ;35
+Data.b 4,3
+Data.b  3,38,37, 2, 3,68,37
+Data.b 4,3
+Data.b 38,39,40,36,36,40,68
+Data.b 4,2
+Data.b 37,36, 2,39,63, 2
+Data.b 5,0
+Data.b 38,37,40,41,42
+Data.b 4,4
+Data.b 35,41,39,37,68,67,35,37                 ;40
+Data.b 6,0
+Data.b 39,40,35,34,48,42
+Data.b 5,3
+Data.b 39,41,48,15,59,79,15,59
+Data.b 6,0
+Data.b 53,52,47,44,45,32
+Data.b 5,0
+Data.b 45,48,46,47,43
+Data.b 5,0
+Data.b 34,32,48,44,43                          ;45
+Data.b 5,0
+Data.b 15,48,44,47,14
+Data.b 7,3
+Data.b 52,43,44,46,14,13,52,13,77,15
+Data.b 7,0
+Data.b 41,34,45,44,46,42,15
+Data.b 3,4
+Data.b 51,50,52,78,77,50,52
+Data.b 2,4
+Data.b 49,51,76,78,51,49                       ;50
+Data.b 4,4
+Data.b 49,53,52,50,53,50,76,75
+Data.b 5,3
+Data.b 43,47,50,51,53,47,77,49
+Data.b 4,3
+Data.b 43,52,51,28,28,75,51
+Data.b 0,4
+Data.b 29,75,81,76
+Data.b 2,2
+Data.b 58,59,82,58                             ;55
+Data.b 3,3
+Data.b 57,58,59,79,57,59
+Data.b 4,6
+Data.b 56,58,16,12,79,80,16,12,58,56
+Data.b 4,4
+Data.b 57,56,59,55,80,57,82,55
+Data.b 4,3
+Data.b 42,56,58,55,42,79,56
+Data.b 0,3
+Data.b 80,78,82                                ;60
+Data.b 5,4
+Data.b 62,31,30,26,25,64,73,25,62
+Data.b 3,4
+Data.b 30,31,61,61,64,65,30
+Data.b 0,2
+Data.b 69,38
+Data.b 0,12
+Data.b 69,71,73,65,66, 2, 4,62,61,20,22,18
+Data.b 0,4
+Data.b 64, 4,30,62                             ;65
+Data.b 0,6
+Data.b  2, 3, 4,64,67,30
+Data.b 0,7
+Data.b 40,35,33,30,66, 3,68
+Data.b 0,5
+Data.b 67,40,37,36, 3
+Data.b 0,7
+Data.b 63,70, 1,71,18,64, 2
+Data.b 0,3
+Data.b 69,71, 1                                ;70
+Data.b 0,8
+Data.b 70, 1,69,18,19,74,17,72
+Data.b 0,9
+Data.b 71,74,73,23,27, 6, 8, 7, 9
+Data.b 0,8
+Data.b 64,72,74,21,20,25,61,23
+Data.b 0,6
+Data.b 71,72,73,17,21,19
+Data.b 0,8
+Data.b  5,81,54,29,51,53,28,76                 ;75
+Data.b 0,8
+Data.b 75,29,54,81,11,78,50,51
+Data.b 0,5
+Data.b 47,13,78,49,52
+Data.b 0,10
+Data.b 76,50,49,77,13,12,60,80,82,11
+Data.b 0,6
+Data.b 15,16,57,56,59,42
+Data.b 0,6
+Data.b 78,82,58,57,12,60                       ;80
+Data.b 0,7
+Data.b 10,11,5,7,75,76,54
+Data.b 0,5
+Data.b 78,60,80,58,55
+
+.Countries
+Data$ "Deutsches Reich"
+Data$ "Frankreich"
+Data$ "Grossbritannien"
+Data$ "Russland"
+Data$ "Italien"
+Data$ "sterreich-Ungarn"
+Data$ "Osmanisches Reich"
+Data$ "Neutral"
+
+.WindData
+Data.b 1,1
+Data.b 8,-1
+Data.b 11,-1
+Data.b 14,-1
+Data.b 17,-1
+Data.b 24,1
+Data.b 27,1
+Data.b 30,1
+Data.b 33,1
+Data.b 36,-1
+Data.b 37,-1
+Data.b 39,1
+Data.b 40,1
+Data.b 43,-1
+Data.b 44,-1
+Data.b 46,1
+
+.Monate
+Data$ "Januar"
+Data$ "Februar"
+Data$ "Maerz"
+Data$ "April"
+Data$ "Mai"
+Data$ "Juni"
+Data$ "Juli"
+Data$ "August"
+Data$ "September"
+Data$ "Oktober"
+Data$ "November"
+Data$ "Dezember"
+

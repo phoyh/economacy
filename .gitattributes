@@ -1,0 +1,3 @@
+bin/* linguist-generated
+src/* linguist-language=BlitzBasic
+src-tokenized/* linguist-generated
